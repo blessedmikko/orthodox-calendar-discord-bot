@@ -65,24 +65,35 @@ def split_at_lines(text: str, limit: int = DESCRIPTION_LIMIT) -> list[str]:
 
 
 def divide_sections(text: str) -> list[tuple[str, str]]:
-    """Use source section headings; fallback preserves text if their spelling varies."""
-    markers = [
-        (re.compile(r'^the scripture readings\s*:?$', re.I), '📖 Scripture readings'),
-        (re.compile(r'^scripture readings\s*:?$', re.I), '📖 Scripture readings'),
-        (re.compile(r'^troparion(?:s)?(?: and kontakion(?:s)?)?\s*:?$', re.I), '🎼 Troparia & hymns'),
-        (re.compile(r'^kontakion(?:s)?\s*:?$', re.I), '🎼 Kontakia'),
-    ]
+    """Place source-identified troparia and kontakia in separate Discord embeds.
+
+    The calendar's hymn headings may include a tone or dedication. Do not infer
+    missing hymns: only label text that the source explicitly identifies.
+    """
     sections = []
     title = '☦ Principal commemorations & calendar'
     lines = []
-    for line in text.splitlines():
-        match = next((label for regex, label in markers if regex.fullmatch(line.strip())), None)
-        if match:
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if re.fullmatch(r'(?:the )?scripture readings\s*:?|readings from (?:the )?holy scripture\s*:', line, re.I):
+            new_title = '📖 Scripture readings'
+        elif re.match(r'^troparion(?:s)?\b', line, re.I):
+            new_title = '🎶 Troparion' if not re.match(r'^troparions\b', line, re.I) else '🎶 Troparia'
+        elif re.match(r'^kontakion(?:s)?\b', line, re.I):
+            new_title = '🕊️ Kontakion' if not re.match(r'^kontakions\b', line, re.I) else '🕊️ Kontakia'
+        else:
+            new_title = None
+
+        if new_title:
             if lines:
                 sections.append((title, '\n'.join(lines)))
-            title, lines = match, []
+            title, lines = new_title, []
+            # Retain informative source headings (tone, saint's name, etc.).
+            # Omit only an exact label already present in the embed title.
+            if not re.fullmatch(r'(?:the )?scripture readings\s*:?|troparions?\s*:?|kontakions?\s*:', line, re.I):
+                lines.append(line)
         else:
-            lines.append(line)
+            lines.append(raw_line)
     if lines:
         sections.append((title, '\n'.join(lines)))
     return sections
