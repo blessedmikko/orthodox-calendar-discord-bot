@@ -36,6 +36,7 @@ jobs:
       - name: Run calendar bot
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_ROLE_ID: ${{ vars.DISCORD_ROLE_ID }}
           EVENT_NAME: ${{ github.event_name }}
           SEND_TO_DISCORD: ${{ inputs.send_to_discord }}
           SELECTED_DATE: ${{ inputs.date }}
