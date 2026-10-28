@@ -1,0 +1,46 @@
+name: Daily Orthodox Calendar
+
+on:
+  schedule:
+    - cron: '0 10 * * *' # 10:00 UTC all year, regardless of BST
+  workflow_dispatch:
+    inputs:
+      send_to_discord:
+        description: 'Actually send to Discord? (false = preview only)'
+        type: boolean
+        required: true
+        default: false
+      date:
+        description: 'Optional Gregorian date (YYYY-MM-DD); blank = current UTC date'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orthodox-calendar-post
+  cancel-in-progress: false
+
+jobs:
+  calendar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Run calendar bot
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          EVENT_NAME: ${{ github.event_name }}
+          SEND_TO_DISCORD: ${{ inputs.send_to_discord }}
+          SELECTED_DATE: ${{ inputs.date }}
+        run: |
+          ARGS=()
+          if [[ -n "$SELECTED_DATE" ]]; then ARGS+=(--date "$SELECTED_DATE"); fi
+          if [[ "$EVENT_NAME" == 'schedule' || "$SEND_TO_DISCORD" == 'true' ]]; then ARGS+=(--post); fi
+          python calendar_bot.py "${ARGS[@]}"
